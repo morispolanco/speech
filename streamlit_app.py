@@ -1,9 +1,8 @@
 import streamlit as st
 import openai
-import sounddevice as sd
-import numpy as np
-import tempfile
+import pyaudio
 import wave
+import tempfile
 
 def transcribe_speech(audio_file, api_key):
     # Set up OpenAI API credentials
@@ -15,17 +14,36 @@ def transcribe_speech(audio_file, api_key):
     pass
 
 def record_audio(duration):
-    fs = 44100  # Sample rate
-    recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
-    sd.wait()  # Wait until recording is finished
-    return recording.flatten()
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 1
+    RATE = 44100
+
+    p = pyaudio.PyAudio()
+
+    stream = p.open(format=FORMAT,
+                    channels=CHANNELS,
+                    rate=RATE,
+                    input=True,
+                    frames_per_buffer=CHUNK)
+
+    frames = []
+    for i in range(0, int(RATE / CHUNK * duration)):
+        data = stream.read(CHUNK)
+        frames.append(data)
+
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
+
+    return b''.join(frames)
 
 def save_audio_to_file(audio, filename):
     with wave.open(filename, 'wb') as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(44100)
-        wf.writeframes(audio.tobytes())
+        wf.writeframes(audio)
 
 def main():
     st.title("Speech Transcription with OpenAI Whisper")
