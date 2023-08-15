@@ -2,3 +2,4 @@ streamlit
 openai
 sounddevice
 numpy
+pyaudio
