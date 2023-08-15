@@ -1,53 +1,26 @@
 import streamlit as st
-import sounddevice as sd
-import soundfile as sf
-from whisper import Whisper
+import openai
+import speech_recognition as sr
 
-def record_audio(filename, duration):
-    # Configurar la grabación de audio
-    sample_rate = 16000
-    channels = 1
+st.title('Transcriptor de Voz')
 
-    # Grabar audio
-    audio = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=channels)
-    sd.wait()
+api_key = st.text_area('Ingresa tu API key de OpenAI')
 
-    # Guardar el archivo de audio
-    sf.write(filename, audio, sample_rate)
+if 'transcript' not in st.session_state:
+  st.session_state['transcript'] = ''
 
-def transcribe_audio(filename):
-    # Cargar el modelo de Whisper
-    whisper = Whisper()
+st.write('Transcripción:')
+st.write(st.session_state['transcript'])
 
-    # Transcribir el audio
-    transcription = whisper.transcribe(filename)
-
-    return transcription
-
-def main():
-    st.title("Aplicación de Transcripción de Voz")
-
-    # Configurar la duración de la grabación
-    duration = st.slider("Duración de la grabación (segundos)", 1, 10, 3)
-
-    # Botón para iniciar la grabación
-    if st.button("Iniciar Grabación"):
-        st.info("Grabando...")
-
-        # Nombre del archivo de audio
-        filename = "audio.wav"
-
-        # Grabar audio
-        record_audio(filename, duration)
-
-        st.success("Grabación finalizada")
-
-        # Transcribir el audio
-        transcription = transcribe_audio(filename)
-
-        # Mostrar la transcripción
-        st.subheader("Transcripción:")
-        st.write(transcription)
-
-if __name__ == "__main__":
-    main()
+if st.button('Grabar'):
+  r = sr.Recognizer()
+  with sr.Microphone() as source:
+    audio = r.listen(source)
+      
+  openai.api_key = api_key
+  
+  transcript = openai.Audio.transcribe('whisper-1', audio.get_wav_data())['text']
+  st.session_state['transcript'] += f"\n{transcript}"
+  
+if st.button('Limpiar'):
+  st.session_state['transcript'] = ''
