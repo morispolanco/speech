@@ -1,85 +1,53 @@
 import streamlit as st
-import openai
-import pyaudio
-import wave
-import tempfile
+import sounddevice as sd
+import soundfile as sf
+from whisper import Whisper
 
-def transcribe_speech(audio_file, api_key):
-    # Set up OpenAI API credentials
-    openai.api_key = api_key
+def record_audio(filename, duration):
+    # Configurar la grabación de audio
+    sample_rate = 16000
+    channels = 1
 
-    # TODO: Implement speech transcription using OpenAI Whisper API
-    # You can use the `openai.Transcription.create()` method to transcribe the audio file
-    # Make sure to handle any errors that may occur during the transcription process
-    pass
+    # Grabar audio
+    audio = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=channels)
+    sd.wait()
 
-def record_audio(duration):
-    CHUNK = 1024
-    FORMAT = pyaudio.paInt16
-    CHANNELS = 1
-    RATE = 44100
+    # Guardar el archivo de audio
+    sf.write(filename, audio, sample_rate)
 
-    p = pyaudio.PyAudio()
+def transcribe_audio(filename):
+    # Cargar el modelo de Whisper
+    whisper = Whisper()
 
-    stream = p.open(format=FORMAT,
-                    channels=CHANNELS,
-                    rate=RATE,
-                    input=True,
-                    frames_per_buffer=CHUNK)
+    # Transcribir el audio
+    transcription = whisper.transcribe(filename)
 
-    frames = []
-    for i in range(0, int(RATE / CHUNK * duration)):
-        data = stream.read(CHUNK)
-        frames.append(data)
-
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
-
-    return b''.join(frames)
-
-def save_audio_to_file(audio, filename):
-    with wave.open(filename, 'wb') as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(44100)
-        wf.writeframes(audio)
+    return transcription
 
 def main():
-    st.title("Speech Transcription with OpenAI Whisper")
+    st.title("Aplicación de Transcripción de Voz")
 
-    # API key input field
-    api_key = st.text_input("Enter your OpenAI API key")
+    # Configurar la duración de la grabación
+    duration = st.slider("Duración de la grabación (segundos)", 1, 10, 3)
 
-    # File uploader or microphone recording
-    audio_source = st.radio("Select audio source", ("Upload audio file", "Record from microphone"))
+    # Botón para iniciar la grabación
+    if st.button("Iniciar Grabación"):
+        st.info("Grabando...")
 
-    if audio_source == "Upload audio file":
-        audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
-        if audio_file is not None and api_key:
-            # Transcribe speech
-            transcription = transcribe_speech(audio_file, api_key)
+        # Nombre del archivo de audio
+        filename = "audio.wav"
 
-            # Display the transcription
-            st.subheader("Transcription")
-            st.write(transcription)
-    else:
-        duration = st.slider("Recording duration (seconds)", 1, 10, 3)
-        if st.button("Start Recording") and api_key:
-            # Record audio from microphone
-            recording = record_audio(duration)
+        # Grabar audio
+        record_audio(filename, duration)
 
-            # Save recorded audio to a temporary file
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-                temp_filename = temp_file.name
-                save_audio_to_file(recording, temp_filename)
+        st.success("Grabación finalizada")
 
-            # Transcribe speech
-            transcription = transcribe_speech(temp_filename, api_key)
+        # Transcribir el audio
+        transcription = transcribe_audio(filename)
 
-            # Display the transcription
-            st.subheader("Transcription")
-            st.write(transcription)
+        # Mostrar la transcripción
+        st.subheader("Transcripción:")
+        st.write(transcription)
 
 if __name__ == "__main__":
     main()
